@@ -11,6 +11,28 @@ export type CardId = `${Suit}-${Rank}`;
 export type Contract = Suit | "no-trump" | "all-trump";
 export type Multiplier = 1 | 2 | 4;
 export type Phase = "bidding" | "playing" | "deal-end" | "game-over";
+export type DeclarationStatus = "pending" | "won" | "lost";
+
+export interface DeclarationOption {
+  id: string;
+  kind: "run" | "quad";
+  suit: Suit | null;
+  high: Rank;
+  length: number;
+  points: number;
+}
+
+export interface PublicDeclaration extends DeclarationOption {
+  seat: Seat;
+  status: DeclarationStatus;
+}
+
+export interface BelotAnnouncement {
+  seat: Seat;
+  suit: Suit;
+  card: "Q" | "K";
+  stage: "belot" | "rebelot";
+}
 
 export type BidAction =
   | { type: "pass" }
@@ -20,7 +42,8 @@ export type BidAction =
 
 export type Command =
   | { type: "bid"; seat: Seat; action: BidAction }
-  | { type: "play"; seat: Seat; card: CardId }
+  | { type: "declare"; seat: Seat; declaration: string }
+  | { type: "play"; seat: Seat; card: CardId; announceBelot?: boolean }
   | { type: "next-deal"; seat: Seat };
 
 export interface BidRecord {
@@ -54,6 +77,8 @@ export interface GameState {
   trick: PlayedCard[];
   tricksWon: [number, number];
   captured: [Card[], Card[]];
+  declarations: PublicDeclaration[];
+  belotAnnouncements: BelotAnnouncement[];
   declarationPoints: [number, number];
   belotPoints: [number, number];
   scores: [number, number];
@@ -76,6 +101,8 @@ export interface PlayerView {
   bids: BidRecord[];
   trick: PlayedCard[];
   tricksWon: [number, number];
+  declarations: PublicDeclaration[];
+  belotAnnouncements: BelotAnnouncement[];
   declarationPoints: [number, number];
   belotPoints: [number, number];
   scores: [number, number];

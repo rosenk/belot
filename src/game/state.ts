@@ -1,5 +1,5 @@
 import { cardPoints, createDeck, shuffle } from "./cards.ts";
-import { belotScores, declarationScores } from "./declarations.ts";
+import { availableDeclarations, resolveDeclarations } from "./declarations.ts";
 import { legalCards, trickWinner } from "./rules.ts";
 import {
   cardId,
@@ -40,6 +40,7 @@ function deal(dealer: Seat, random: () => number, scores: [number, number], deal
   return {
     phase: "bidding", dealer, turn: first, hands, remaining, contract: null, bidder: null,
     multiplier: 1, bids: [], consecutivePasses: 0, trick: [], tricksWon: [0, 0], captured: [[], []],
+    declarations: [], belotAnnouncements: [],
     declarationPoints: [0, 0], belotPoints: [0, 0], scores, hanging, dealNumber, result: null, winner: null,
   };
 }
@@ -70,8 +71,6 @@ function finishAuction(state: GameState): GameState {
     hands,
     remaining: emptyHands(),
     turn: nextSeat(state.dealer),
-    declarationPoints: declarationScores(hands, contract),
-    belotPoints: belotScores(hands, contract),
   };
 }
 
@@ -143,22 +142,53 @@ function scoreDeal(state: GameState, lastWinner: Seat): GameState {
   return { ...state, phase: winner === null ? "deal-end" : "game-over", scores, hanging, winner, result: { raw, written, contractMade: made, summary } };
 }
 
-function applyPlay(state: GameState, seat: Seat, id: string): GameState {
+function applyDeclaration(state: GameState, seat: Seat, id: string): GameState {
+  if (state.phase !== "playing" || state.turn !== seat || !state.contract || state.hands[seat].length !== 8) return state;
+  if (state.declarations.some((item) => item.seat === seat && item.id === id)) return state;
+  const option = availableDeclarations(state.hands[seat], state.contract).find((item) => item.id === id);
+  return option ? { ...state, declarations: [...state.declarations, { ...option, seat, status: "pending" }] } : state;
+}
+
+function announceBelot(state: GameState, seat: Seat, card: Card): GameState | null {
+  if (!state.contract || (state.contract !== "all-trump" && state.contract !== card.suit) || (card.rank !== "Q" && card.rank !== "K")) return null;
+  const previous = state.belotAnnouncements.filter((item) => item.seat === seat && item.suit === card.suit);
+  if (!previous.length) {
+    const other = card.rank === "Q" ? "K" : "Q";
+    if (!state.hands[seat].some((held) => held.suit === card.suit && held.rank === other)) return null;
+    return { ...state, belotAnnouncements: [...state.belotAnnouncements, { seat, suit: card.suit, card: card.rank, stage: "belot" }] };
+  }
+  if (previous.length !== 1 || previous[0].stage !== "belot" || previous[0].card === card.rank) return null;
+  const belotPoints: [number, number] = [...state.belotPoints];
+  belotPoints[teamOf(seat)] += 20;
+  return {
+    ...state,
+    belotAnnouncements: [...state.belotAnnouncements, { seat, suit: card.suit, card: card.rank, stage: "rebelot" }],
+    belotPoints,
+  };
+}
+
+function applyPlay(state: GameState, seat: Seat, id: string, announce = false): GameState {
   if (state.phase !== "playing" || state.turn !== seat || !state.contract || state.trick.length >= 4) return state;
   const allowed = legalCards(state.hands[seat], state.trick, state.contract);
   if (!allowed.includes(id as never)) return state;
   const index = state.hands[seat].findIndex((card) => cardId(card) === id);
   if (index < 0) return state;
   const card = state.hands[seat][index];
-  const hands = state.hands.map((hand, handSeat) => handSeat === seat ? hand.filter((_, cardIndex) => cardIndex !== index) : [...hand]) as GameState["hands"];
-  const trick = [...state.trick, { seat, card }];
-  if (trick.length < 4) return { ...state, hands, trick, turn: nextSeat(seat) };
-  const winner = trickWinner(trick, state.contract);
+  const announced = announce ? announceBelot(state, seat, card) : state;
+  if (!announced) return state;
+  const hands = announced.hands.map((hand, handSeat) => handSeat === seat ? hand.filter((_, cardIndex) => cardIndex !== index) : [...hand]) as GameState["hands"];
+  const trick = [...announced.trick, { seat, card }];
+  if (trick.length < 4) return { ...announced, hands, trick, turn: nextSeat(seat) };
+  const winner = trickWinner(trick, announced.contract!);
   const team = teamOf(winner);
-  const captured = state.captured.map((cards, index) => index === team ? [...cards, ...trick.map((play) => play.card)] : [...cards]) as GameState["captured"];
-  const tricksWon: [number, number] = [...state.tricksWon];
+  const captured = announced.captured.map((cards, capturedTeam) => capturedTeam === team ? [...cards, ...trick.map((play) => play.card)] : [...cards]) as GameState["captured"];
+  const tricksWon: [number, number] = [...announced.tricksWon];
   tricksWon[team]++;
-  return { ...state, hands, trick, turn: winner, captured, tricksWon };
+  if (tricksWon[0] + tricksWon[1] === 1) {
+    const resolved = resolveDeclarations(announced.declarations);
+    return { ...announced, hands, trick, turn: winner, captured, tricksWon, declarations: resolved.declarations, declarationPoints: resolved.scores };
+  }
+  return { ...announced, hands, trick, turn: winner, captured, tricksWon };
 }
 
 export function collectTrick(state: GameState): GameState {
@@ -170,7 +200,8 @@ export function collectTrick(state: GameState): GameState {
 
 export function applyCommand(state: GameState, command: Command, random: () => number = Math.random): GameState {
   if (command.type === "bid") return applyBid(state, command.seat, command.action, random);
-  if (command.type === "play") return applyPlay(state, command.seat, command.card);
+  if (command.type === "declare") return applyDeclaration(state, command.seat, command.declaration);
+  if (command.type === "play") return applyPlay(state, command.seat, command.card, command.announceBelot);
   if (command.type === "next-deal" && state.phase === "deal-end") return deal(nextSeat(state.dealer), random, state.scores, state.dealNumber + 1, state.hanging);
   return state;
 }
@@ -184,6 +215,8 @@ export function viewForSeat(state: GameState, seat: Seat): PlayerView {
     bids: state.bids.map((bid) => ({ seat: bid.seat, action: { ...bid.action } })),
     trick: state.trick.map((play) => ({ seat: play.seat, card: { ...play.card } })),
     tricksWon: [...state.tricksWon],
+    declarations: state.declarations.map((item) => ({ ...item })),
+    belotAnnouncements: state.belotAnnouncements.map((item) => ({ ...item })),
     declarationPoints: [...state.declarationPoints], belotPoints: [...state.belotPoints], scores: [...state.scores],
     hanging: state.hanging, dealNumber: state.dealNumber,
     result: state.result ? { ...state.result, raw: [...state.result.raw], written: [...state.result.written] } : null,
@@ -195,5 +228,5 @@ export function viewForSeat(state: GameState, seat: Seat): PlayerView {
 export function isPlayerView(value: unknown): value is PlayerView {
   if (!value || typeof value !== "object") return false;
   const view = value as Partial<PlayerView>;
-  return typeof view.phase === "string" && typeof view.seat === "number" && Array.isArray(view.hand) && view.hand.length <= 8 && Array.isArray(view.handCounts) && view.handCounts.length === 4 && Array.isArray(view.scores) && view.scores.length === 2 && Array.isArray(view.legalCards);
+  return typeof view.phase === "string" && typeof view.seat === "number" && Array.isArray(view.hand) && view.hand.length <= 8 && Array.isArray(view.handCounts) && view.handCounts.length === 4 && Array.isArray(view.scores) && view.scores.length === 2 && Array.isArray(view.declarations) && Array.isArray(view.belotAnnouncements) && Array.isArray(view.legalCards);
 }

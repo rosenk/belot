@@ -22,7 +22,7 @@ interface Callbacks {
 function isCommand(value: unknown): value is Command {
   if (!value || typeof value !== "object") return false;
   const command = value as Partial<Command>;
-  return (command.type === "bid" || command.type === "play" || command.type === "next-deal") && typeof command.seat === "number";
+  return (command.type === "bid" || command.type === "declare" || command.type === "play" || command.type === "next-deal") && typeof command.seat === "number";
 }
 
 export class OnlineSession {

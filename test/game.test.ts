@@ -1,11 +1,20 @@
 import assert from "node:assert/strict";
 import test from "node:test";
+import { botCommand } from "../src/game/bot.ts";
 import { createDeck } from "../src/game/cards.ts";
+import { availableDeclarations, resolveDeclarations } from "../src/game/declarations.ts";
 import { legalCards, trickWinner } from "../src/game/rules.ts";
 import { applyCommand, collectTrick, createGame, viewForSeat } from "../src/game/state.ts";
-import { cardId, type Card, type PlayedCard, type Seat } from "../src/game/types.ts";
+import { cardId, type Card, type GameState, type PlayedCard, type PublicDeclaration, type Seat } from "../src/game/types.ts";
 
 const card = (suit: Card["suit"], rank: Card["rank"]): Card => ({ suit, rank });
+
+function playingGame(hands: GameState["hands"], contract: GameState["contract"] = "hearts"): GameState {
+  return {
+    ...createGame(() => 0.3), phase: "playing", turn: 0, hands, remaining: [[], [], [], []], contract, bidder: 0,
+    declarations: [], belotAnnouncements: [], declarationPoints: [0, 0], belotPoints: [0, 0],
+  };
+}
 
 test("deck and first deal contain every card exactly once in 3+2 plus reserved 3", () => {
   const game = createGame(() => 0.37);
@@ -96,4 +105,75 @@ test("keeps all four cards visible until the completed trick is collected", () =
   game = collectTrick(game);
   assert.equal(game.trick.length, 0);
   assert.equal(game.turn, winner);
+});
+
+test("declarations are explicit, public, and validated against the announcing hand", () => {
+  const hands: GameState["hands"] = [
+    [card("hearts", "7"), card("hearts", "8"), card("hearts", "9"), card("clubs", "7"), card("clubs", "8"), card("diamonds", "7"), card("spades", "7"), card("spades", "8")],
+    Array(8).fill(card("clubs", "A")), Array(8).fill(card("diamonds", "A")), Array(8).fill(card("spades", "A")),
+  ];
+  const game = playingGame(hands);
+  const option = availableDeclarations(hands[0], "hearts").find((item) => item.kind === "run");
+  assert.ok(option);
+  const declared = applyCommand(game, { type: "declare", seat: 0, declaration: option.id });
+  assert.equal(declared.declarations.length, 1);
+  assert.equal(viewForSeat(declared, 3).declarations[0].high, "9");
+  assert.deepEqual(declared.declarationPoints, [0, 0], "points wait until every player has had a chance to announce");
+  assert.equal(applyCommand(game, { type: "declare", seat: 0, declaration: "quad-J" }), game);
+  const afterPlay = applyCommand(declared, { type: "play", seat: 0, card: "clubs-7" });
+  assert.equal(applyCommand(afterPlay, { type: "declare", seat: 0, declaration: option.id }), afterPlay, "late declarations are rejected");
+  let resolved = afterPlay;
+  for (const seat of [1, 2, 3] as Seat[]) resolved = applyCommand(resolved, { type: "play", seat, card: viewForSeat(resolved, seat).legalCards[0] });
+  assert.deepEqual(resolved.declarationPoints, [20, 0]);
+  assert.equal(resolved.declarations[0].status, "won");
+});
+
+test("a longer run beats a shorter run ending in a higher card", () => {
+  const declarations: PublicDeclaration[] = [
+    { id: "run-hearts-K-4", seat: 0, kind: "run", suit: "hearts", high: "K", length: 4, points: 50, status: "pending" },
+    { id: "run-spades-A-3", seat: 1, kind: "run", suit: "spades", high: "A", length: 3, points: 20, status: "pending" },
+  ];
+  const resolved = resolveDeclarations(declarations);
+  assert.deepEqual(resolved.scores, [50, 0]);
+  assert.deepEqual(resolved.declarations.map((item) => item.status), ["won", "lost"]);
+  assert.deepEqual(availableDeclarations([card("hearts", "7"), card("hearts", "8"), card("hearts", "9")], "no-trump"), []);
+});
+
+test("belot scores only after valid public belot and rebelot plays", () => {
+  const hands: GameState["hands"] = [
+    [card("hearts", "Q"), card("hearts", "K"), card("clubs", "7"), card("clubs", "8"), card("diamonds", "7"), card("diamonds", "8"), card("spades", "7"), card("spades", "8")],
+    [card("clubs", "9"), card("clubs", "10"), card("diamonds", "9"), card("diamonds", "10"), card("spades", "9"), card("spades", "10"), card("clubs", "J"), card("diamonds", "J")],
+    [card("clubs", "Q"), card("clubs", "K"), card("diamonds", "Q"), card("diamonds", "K"), card("spades", "Q"), card("spades", "K"), card("clubs", "A"), card("diamonds", "A")],
+    [card("clubs", "7"), card("clubs", "8"), card("diamonds", "7"), card("diamonds", "8"), card("spades", "7"), card("spades", "8"), card("spades", "J"), card("spades", "A")],
+  ];
+  let omitted = playingGame(hands.map((hand) => hand.map((item) => ({ ...item }))) as GameState["hands"]);
+  omitted = applyCommand(omitted, { type: "play", seat: 0, card: "hearts-Q" });
+  for (const seat of [1, 2, 3] as Seat[]) omitted = applyCommand(omitted, { type: "play", seat, card: viewForSeat(omitted, seat).legalCards[0] });
+  omitted = collectTrick(omitted);
+  assert.equal(applyCommand(omitted, { type: "play", seat: 0, card: "hearts-K", announceBelot: true }), omitted, "rebelot cannot be claimed when belot was omitted");
+
+  let game = playingGame(hands);
+  game = applyCommand(game, { type: "play", seat: 0, card: "hearts-Q", announceBelot: true });
+  assert.equal(game.belotAnnouncements[0].stage, "belot");
+  assert.deepEqual(game.belotPoints, [0, 0]);
+  for (const seat of [1, 2, 3] as Seat[]) game = applyCommand(game, { type: "play", seat, card: viewForSeat(game, seat).legalCards[0] });
+  game = collectTrick(game);
+  assert.equal(game.turn, 0);
+  game = applyCommand(game, { type: "play", seat: 0, card: "hearts-K", announceBelot: true });
+  assert.equal(game.belotAnnouncements[1].stage, "rebelot");
+  assert.deepEqual(game.belotPoints, [20, 0]);
+});
+
+test("bots use only their player view and react to a partner's public run", () => {
+  const hands: GameState["hands"] = [
+    [card("clubs", "7"), card("hearts", "7"), card("diamonds", "A"), card("spades", "A"), card("clubs", "A"), card("hearts", "A"), card("diamonds", "10")],
+    Array(7).fill(card("clubs", "8")), Array(7).fill(card("diamonds", "8")), Array(7).fill(card("spades", "8")),
+  ];
+  const game = playingGame(hands);
+  const plain = botCommand(viewForSeat(game, 0));
+  assert.equal(plain?.type === "play" && plain.card, "clubs-7");
+  game.declarations = [{ id: "run-hearts-9-3", seat: 2, kind: "run", suit: "hearts", high: "9", length: 3, points: 20, status: "won" }];
+  const informed = botCommand(viewForSeat(game, 0));
+  assert.equal(informed?.type === "play" && informed.card, "hearts-7");
+  assert.equal("hands" in viewForSeat(game, 0), false);
 });
