@@ -1,0 +1,29 @@
+{
+  "name": "belot",
+  "private": true,
+  "version": "0.1.0",
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "dev:matchmaker": "wrangler dev --config wrangler.jsonc",
+    "build": "vite build",
+    "preview": "vite preview",
+    "test": "tsx --test test/**/*.test.ts",
+    "check:matchmaker": "wrangler deploy --dry-run --config wrangler.jsonc",
+    "check": "tsc --noEmit && svelte-check --tsconfig ./tsconfig.json && npm test && npm run build && npm run check:matchmaker"
+  },
+  "dependencies": {
+    "peerjs": "1.5.5",
+    "svelte": "5.57.0"
+  },
+  "devDependencies": {
+    "@cloudflare/workers-types": "^5.20260924.1",
+    "@sveltejs/vite-plugin-svelte": "7.3.0",
+    "@types/node": "^24.5.2",
+    "svelte-check": "4.7.6",
+    "tsx": "^4.20.5",
+    "typescript": "^6.0.3",
+    "vite": "8.3.0",
+    "wrangler": "^4.40.2"
+  }
+}

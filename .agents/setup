@@ -1,0 +1,9 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+command -v node >/dev/null
+command -v npm >/dev/null
+test -f index.html
+test -f package.json
+npm ci
+npm run check

@@ -1,0 +1,13 @@
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "belot-matchmaker",
+  "main": "matchmaker/worker.ts",
+  "compatibility_date": "2026-09-26",
+  "vars": {
+    "ALLOWED_ORIGINS": "http://localhost:*,https://*.onamp.dev,https://rosenk.github.io"
+  },
+  "durable_objects": {
+    "bindings": [{ "name": "MATCHMAKER", "class_name": "MatchmakingQueue" }]
+  },
+  "migrations": [{ "tag": "v1", "new_sqlite_classes": ["MatchmakingQueue"] }]
+}
