@@ -156,7 +156,6 @@
     selectedCardId = null;
     act({ type: "play", seat, card: id, announceBelot: announceBelot || undefined });
   }
-  function quickPlay(id: CardId): void { play(id, belotStage(id) !== null); }
   function selectCard(id: CardId): void { selectedCardId = selectedCardId === id ? null : id; }
   function nextDeal(): void { act({ type: "next-deal", seat }); }
   function toMenu(): void {
@@ -336,7 +335,7 @@
           <div class="decision-stack">
             <div class="turn-status">
               <b>{#if !status.ready && (mode === "host" || mode === "guest")}Изчакваме масата{:else if collector !== null}{collector === seat ? "Вие вземате взятката" : `${seatName[collectorPosition]} взема взятката`}{:else if myTurn}Ваш ред{:else}{seatName[(view.turn - seat + 4) % 4]} е на ход{/if}</b>
-              <span>{view.phase === "bidding" ? "Изберете обява" : myTurn ? (selectedCard ? `Избрана е ${selectedCard.rank}${suitSymbol[selectedCard.suit]}` : "Плъзнете позволена карта нагоре") : "Следете играта на масата"}</span>
+              <span>{view.phase === "bidding" ? "Изберете обява" : myTurn ? (selectedCard ? `Избрана е ${selectedCard.rank}${suitSymbol[selectedCard.suit]}` : "Изберете позволена карта") : "Следете играта на масата"}</span>
             </div>
 
             {#if view.phase === "bidding"}
@@ -370,7 +369,7 @@
 
           <section class="hand-cards" aria-label="Вашите карти">
             {#each view.hand as card (cardId(card))}
-              <Card {card} playable={myTurn && view.phase === "playing" && view.legalCards.includes(cardId(card))} selected={selectedCardId === cardId(card)} onclick={() => selectCard(cardId(card))} onplay={() => quickPlay(cardId(card))} />
+              <Card {card} playable={myTurn && view.phase === "playing" && view.legalCards.includes(cardId(card))} selected={selectedCardId === cardId(card)} onclick={() => selectCard(cardId(card))} />
             {/each}
           </section>
         </section>

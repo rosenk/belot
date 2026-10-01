@@ -136,17 +136,15 @@ button:focus-visible, summary:focus-visible { outline: 3px solid #f4ca8b; outlin
 .hand-cards > .card + .card { margin-inline-start: -21px; }
 
 /* Cards */
-.card { --drag-y: 0px; --selected-y: 0px; position: relative; width: 64px; aspect-ratio: .69; padding: 0; overflow: hidden; border: 1px solid #dfd6c6; border-radius: 10px; display: grid; place-items: center; color: var(--ink); background: linear-gradient(145deg, var(--card-face), #eae2d4); box-shadow: 0 5px 14px rgb(0 0 0 / .24); cursor: default; transform: translateY(calc(var(--selected-y) + var(--drag-y))); transition: transform .16s ease, box-shadow .16s ease, filter .16s ease, opacity .16s ease; }
+.card { position: relative; width: 64px; aspect-ratio: .69; padding: 0; overflow: hidden; border: 1px solid #dfd6c6; border-radius: 10px; display: grid; place-items: center; color: var(--ink); background: linear-gradient(145deg, var(--card-face), #eae2d4); box-shadow: 0 5px 14px rgb(0 0 0 / .24); cursor: default; transition: transform .16s ease, box-shadow .16s ease, filter .16s ease, opacity .16s ease; }
 .card.red { color: var(--red); }
 .card .corner { position: absolute; top: 5px; left: 6px; display: flex; flex-direction: column; align-items: center; font: 15px/1 Georgia, serif; }
 .card .corner.bottom { inset: auto 6px 5px auto; transform: rotate(180deg); }
 .card .suit { font-size: 30px; }
-.card.playable { border-color: var(--accent); cursor: grab; box-shadow: 0 0 0 2px rgb(228 183 120 / .72), 0 7px 16px rgb(0 0 0 / .27); touch-action: none; }
-.card.playable:active, .card.dragging { cursor: grabbing; transition: none; }
-.card.selected { --selected-y: -12px; box-shadow: 0 0 0 3px var(--accent), 0 10px 20px rgb(0 0 0 / .28); }
+.card.playable { border-color: var(--accent); cursor: pointer; box-shadow: 0 0 0 2px rgb(228 183 120 / .72), 0 7px 16px rgb(0 0 0 / .27); }
+.card.selected { transform: translateY(-12px); box-shadow: 0 0 0 3px var(--accent), 0 10px 20px rgb(0 0 0 / .28); }
 .card:disabled { color: var(--ink); opacity: .52; filter: saturate(.55) brightness(.9); }
 .card:disabled.red { color: var(--red); }
-.legal-mark { position: absolute; top: 5px; left: 29px; width: 17px; height: 18px; border-radius: 50%; display: grid; place-items: center; color: #34230f; background: var(--accent); box-shadow: 0 2px 5px rgb(0 0 0 / .25); font-size: 13px; font-weight: 900; }
 .card.compact { width: 60px; border-radius: 8px; }
 .card.compact .corner { font-size: 13px; }
 .card.compact .suit { font-size: 26px; }
