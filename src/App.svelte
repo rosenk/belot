@@ -1,6 +1,7 @@
 <script lang="ts">
   import { onMount } from "svelte";
   import Card from "./components/Card.svelte";
+  import Coach from "./components/Coach.svelte";
   import { botCommand } from "./game/bot.ts";
   import { availableDeclarations } from "./game/declarations.ts";
   import { applyCommand, availableBids, collectTrick, contracts, createGame, viewForSeat } from "./game/state.ts";
@@ -26,6 +27,7 @@
   let matchText = $state("");
   let selectedCardId = $state<CardId | null>(null);
   let announcementsDialog = $state<HTMLDialogElement>();
+  let coachEnabled = $state(false);
   let reservations: [string, Seat][] = [];
 
   const suitSymbol: Record<string, string> = { clubs: "♣", diamonds: "♦", hearts: "♥", spades: "♠" };
@@ -158,6 +160,10 @@
   }
   function selectCard(id: CardId): void { selectedCardId = selectedCardId === id ? null : id; }
   function nextDeal(): void { act({ type: "next-deal", seat }); }
+  function toggleCoach(): void {
+    coachEnabled = !coachEnabled;
+    try { localStorage.setItem("belot:coach", String(coachEnabled)); } catch { /* preference lasts for this visit */ }
+  }
   function toMenu(): void {
     cancelMatchmaking();
     session?.close();
@@ -219,6 +225,7 @@
   });
 
   onMount(() => {
+    try { coachEnabled = localStorage.getItem("belot:coach") === "true"; } catch { /* storage is optional */ }
     const code = roomFromUrl();
     if (code) startOnline(isHostRoom(code) ? "host" : "guest", code);
     return () => session?.close();
@@ -242,6 +249,10 @@
         <button class="secondary" disabled={!configuredMatchmakerUrl || findingPlayers} onclick={findPlayers}><span>Намери играчи</span><small>{configuredMatchmakerUrl ? "Случайна онлайн маса" : "Онлайн търсенето още не е достъпно"}</small></button>
         <button class="secondary" onclick={createOnline}><span>Създай онлайн маса</span><small>Покани приятели с линк</small></button>
       </div>
+      <button class="coach-setting" aria-pressed={coachEnabled} onclick={toggleCoach}>
+        <span><b>Помощ за начинаещи</b><small>Кратки обяснения и идеи за ход, когато пожелаете</small></span>
+        <strong>{coachEnabled ? "Вкл." : "Изкл."}</strong>
+      </button>
       {#if findingPlayers || matchText}
         <div class="match-status" aria-live="polite">
           {#if findingPlayers}<span class="search-spinner" aria-hidden="true"></span>{/if}
@@ -256,7 +267,7 @@
     </section>
   </main>
 {:else}
-  <main class="game-shell" class:finished={view.phase === "deal-end" || view.phase === "game-over"}>
+  <main class="game-shell" class:coached={coachEnabled} class:finished={view.phase === "deal-end" || view.phase === "game-over"}>
     <header class="match-header">
       <button class="icon-button" aria-label="Изход към началото" onclick={toMenu}>←</button>
       <div class="scoreboard" aria-label={`Резултат: ние ${view.scores[ourTeam]}, те ${view.scores[theirTeam]}`}>
@@ -267,8 +278,9 @@
 
     <section class="match-context">
       <div><small>ДОГОВОР</small><b>{view.contract ? `${suitSymbol[view.contract] ?? ""} ${contractName[view.contract]}` : "Няма"}{view.multiplier > 1 ? ` ×${view.multiplier}` : ""}</b></div>
-      <div><small>ВЗЯТКИ</small><b>{view.tricksWon[ourTeam]} : {view.tricksWon[theirTeam]}</b></div>
+      <div><small>СПЕЧЕЛЕНИ РЪЦЕ</small><b>{view.tricksWon[ourTeam]} : {view.tricksWon[theirTeam]}</b></div>
     </section>
+    <button class="coach-toggle" aria-pressed={coachEnabled} onclick={toggleCoach}>Помощ за начинаещи · {coachEnabled ? "Вкл." : "Изкл."}</button>
 
     {#if mode === "host" || mode === "guest"}
       <section class="online-strip" class:ready={status.ready} aria-live="polite">
@@ -334,9 +346,13 @@
         <section class="player-dock" class:your-turn={myTurn}>
           <div class="decision-stack">
             <div class="turn-status">
-              <b>{#if !status.ready && (mode === "host" || mode === "guest")}Изчакваме масата{:else if collector !== null}{collector === seat ? "Вие вземате взятката" : `${seatName[collectorPosition]} взема взятката`}{:else if myTurn}Ваш ред{:else}{seatName[(view.turn - seat + 4) % 4]} е на ход{/if}</b>
+              <b>{#if !status.ready && (mode === "host" || mode === "guest")}Изчакваме масата{:else if collector !== null}{collector === seat ? "Вие вземате ръката" : `${seatName[collectorPosition]} взема ръката`}{:else if myTurn}Ваш ред{:else}{seatName[(view.turn - seat + 4) % 4]} е на ход{/if}</b>
               <span>{view.phase === "bidding" ? "Изберете обява" : myTurn ? (selectedCard ? `Избрана е ${selectedCard.rank}${suitSymbol[selectedCard.suit]}` : "Изберете позволена карта") : "Следете играта на масата"}</span>
             </div>
+
+            {#if coachEnabled}
+              <Coach {view} canAct={myTurn} belotStage={selectedBelotStage} onselect={(id) => { if (myTurn && view.legalCards.includes(id)) selectedCardId = id; }} />
+            {/if}
 
             {#if view.phase === "bidding"}
               <div class="bid-actions">
@@ -388,6 +404,7 @@
           </div>
         {/if}
         {#if view.hanging}<p class="hanging">{view.hanging} точки висят</p>{/if}
+        {#if coachEnabled}<Coach {view} />{/if}
         {#if view.phase === "deal-end"}<button class="primary result-action" onclick={nextDeal}>Следващо раздаване</button>{:else}<button class="primary result-action" onclick={toMenu}>Нова маса</button>{/if}
       </section>
     {/if}

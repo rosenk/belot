@@ -48,6 +48,38 @@ button:focus-visible, summary:focus-visible { outline: 3px solid #f4ca8b; outlin
 .rules-teaser { margin-top: 18px; color: var(--muted-paper); font-size: 13px; }
 .rules-teaser summary { min-height: 44px; display: grid; place-items: center; cursor: pointer; font-weight: 700; }
 
+/* Optional beginner help */
+.coach-setting { width: 100%; min-height: 64px; margin-top: 16px; padding: 12px; border: 1px solid #cec6b7; border-radius: 13px; display: flex; align-items: center; gap: 12px; text-align: left; color: var(--ink); background: #eae3d6; cursor: pointer; }
+.coach-setting span { flex: 1; display: grid; gap: 4px; }
+.coach-setting b { font-size: 13px; }
+.coach-setting small { color: var(--muted-paper); font-size: 12px; line-height: 1.4; }
+.coach-setting strong { color: #805828; font-size: 12px; }
+.coach-setting[aria-pressed="true"] { border-color: #b38343; background: #f7e7c9; }
+.coach-toggle { align-self: flex-end; flex-shrink: 0; min-height: 36px; padding: 4px 12px; border: 1px solid #42575b; border-radius: 10px; color: var(--muted-dark); background: var(--panel); cursor: pointer; font-size: 12px; }
+.coach-toggle[aria-pressed="true"] { color: var(--accent); border-color: #aa8654; }
+.coach-note { padding: 12px; border: 1px solid #d8c49e; border-radius: 12px; color: var(--ink); background: #f7eddb; text-align: left; }
+.coach-note > small { display: block; margin-bottom: 5px; color: #8d642f; font-size: 9px; font-weight: 800; letter-spacing: .1em; }
+.coach-note b { font-size: 13px; }
+.coach-note p { margin: 6px 0 0; font-size: 12px; line-height: 1.5; }
+.coach-note .coach-reminder { padding-top: 8px; border-top: 1px solid #deccaa; color: #805828; }
+.coach-idea { margin-top: 8px; border-top: 1px solid #deccaa; }
+.coach-idea summary { min-height: 40px; display: flex; align-items: center; gap: 8px; color: #805828; font-size: 12px; font-weight: 800; cursor: pointer; }
+.coach-idea summary::before { content: "+"; font-size: 18px; }
+.coach-idea[open] summary::before { content: "−"; }
+.coach-idea small { display: block; margin-top: 8px; color: var(--muted-paper); font-size: 11px; line-height: 1.4; }
+.coach-idea button { min-height: 40px; margin-top: 8px; padding: 6px 12px; border: 1px solid #b58c4f; border-radius: 9px; color: var(--ink); background: #eacb96; font-size: 12px; font-weight: 800; cursor: pointer; }
+.game-shell.coached .player-dock { overflow-y: auto; }
+.game-shell.coached .hand-cards { flex-shrink: 0; }
+.game-shell.coached.finished { height: auto; }
+.deal-result > .coach-note { margin: 12px 0; }
+@media (max-width: 759px) {
+  .game-shell.coached { height: auto; }
+}
+@media (min-width: 760px) {
+  .game-shell.coached .player-dock { overflow: hidden; }
+  .game-shell.coached .decision-stack { flex: 1; min-height: 0; overflow-y: auto; padding-bottom: 12px; }
+}
+
 /* Match chrome */
 .game-shell { width: min(100%, 1200px); min-height: 100svh; height: 100dvh; margin: auto; padding: max(8px, env(safe-area-inset-top)) max(8px, env(safe-area-inset-right)) max(8px, env(safe-area-inset-bottom)) max(8px, env(safe-area-inset-left)); display: flex; flex-direction: column; gap: 8px; }
 .match-header { min-height: 48px; display: grid; grid-template-columns: 56px 1fr 68px; align-items: center; }

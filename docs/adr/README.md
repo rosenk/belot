@@ -9,3 +9,4 @@
 | [0005](0005-room-identity-and-recovery.md) | Кратки room покани и tab идентичност | Прието |
 | [0006](0006-optional-four-player-matchmaker.md) | Matchmaking е отделен и незадължителен | Прието |
 | [0007](0007-github-pages-client.md) | Статичният клиент се публикува в GitHub Pages | Прието |
+| [0008](0008-optional-beginner-coach.md) | Незадължителна помощ само по частната проекция на играча | Прието |
